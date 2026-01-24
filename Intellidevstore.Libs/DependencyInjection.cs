@@ -1,0 +1,36 @@
+﻿using Intellidevstore.Libs.Storage;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using SharpGrip.FileSystem;
+using SharpGrip.FileSystem.Adapters;
+
+namespace Intellidevstore.Libs;
+
+public static class DependencyInjection
+{
+    public static void ConfigureClassLibrary(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
+    {
+        services.AddSingleton<IFileSystem>(sp =>
+        {
+            var rootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+
+            // Ensure the root directory exists for the LocalAdapter
+            if (!Directory.Exists(rootPath))
+            {
+                Directory.CreateDirectory(rootPath);
+            }
+
+            var adapters = new List<IAdapter> { new LocalAdapter("app", rootPath) };
+
+            return new FileSystem(adapters);
+        });
+
+        services.AddSingleton<IFileStorage>(sp => new LocalFileStorage(
+            sp.GetRequiredService<IFileSystem>(),
+            "app"
+        ));
+    }
+}

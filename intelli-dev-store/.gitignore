@@ -1,0 +1,28 @@
+## Ignore Visual Studio files
+.vs/
+*.user
+*.userosscache
+*.suo
+
+## Ignore Rider files
+.idea/
+
+## Ignore build outputs
+bin/
+obj/
+out/
+
+## Ignore OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+desktop.ini
+
+## Ignore log files
+*.log
+
+## Ignore secrets
+appsettings.Production.json
+secrets/
+config/

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../Intellidevstore.Libs/Intellidevstore.Libs.csproj" />
+  <Project Path="intelli-dev-store.csproj" />
+</Solution>
