@@ -1,4 +1,7 @@
-﻿using Intellidevstore.Libs.Storage;
+﻿using Intellidevstore.Libs.Database;
+using Intellidevstore.Libs.Database.Interceptors;
+using Intellidevstore.Libs.Storage;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SharpGrip.FileSystem;
@@ -32,5 +35,16 @@ public static class DependencyInjection
             sp.GetRequiredService<IFileSystem>(),
             "app"
         ));
+
+        services.AddSingleton<SoftDeleteInterceptor>();
+
+        services.AddDbContext<ApplicationDbContext>(
+            (sp, options) =>
+            {
+                options.UseNpgsql(configuration.GetConnectionString("Database"));
+                options.UseSnakeCaseNamingConvention();
+                options.AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>());
+            }
+        );
     }
 }
