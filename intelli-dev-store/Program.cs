@@ -2,7 +2,10 @@ using Carter;
 using intelli_dev_store.Extensions;
 using Wolverine.Http;
 
+ServiceExtensions.ConfigureBootstrapLogger();
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilogLogging();
 builder.Services.AddOpenApi();
 
 var configuration = builder.Configuration;
@@ -13,6 +16,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddWolverineHttp();
 
 var app = builder.Build();
+app.UseSerilogRequestLoggingMiddleware();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

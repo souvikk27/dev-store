@@ -1,6 +1,7 @@
 using Carter;
 using Intellidevstore.Libs;
 using Intellidevstore.Libs.Extensions;
+using Serilog;
 using Wolverine;
 
 namespace intelli_dev_store.Extensions;
@@ -45,5 +46,53 @@ public static class ServiceExtensions
         });
 
         return builder;
+    }
+
+    public static void ConfigureBootstrapLogger()
+    {
+        Log.Logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(
+                new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .AddJsonFile(
+                        $"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json",
+                        optional: true
+                    )
+                    .Build()
+            )
+            .CreateBootstrapLogger();
+    }
+
+    public static IHostBuilder UseSerilogLogging(this IHostBuilder hostBuilder)
+    {
+        return hostBuilder.UseSerilog(
+            (context, services, configuration) =>
+                configuration
+                    .ReadFrom.Configuration(context.Configuration)
+                    .ReadFrom.Services(services)
+                    .Enrich.FromLogContext()
+                    .Enrich.WithMachineName()
+                    .Enrich.WithThreadId()
+        );
+    }
+
+    public static IApplicationBuilder UseSerilogRequestLoggingMiddleware(
+        this IApplicationBuilder app
+    )
+    {
+        return app.UseSerilogRequestLogging(options =>
+        {
+            options.MessageTemplate =
+                "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+            options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+            {
+                diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value ?? "unknown");
+                diagnosticContext.Set(
+                    "UserAgent",
+                    httpContext.Request.Headers.UserAgent.ToString()
+                );
+            };
+        });
     }
 }
