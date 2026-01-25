@@ -44,6 +44,12 @@ public class RoleConfigurations : IEntityTypeConfiguration<Role>
 
         builder.Property(x => x.NormalizedName).HasMaxLength(100);
 
+        builder.Property(x => x.Code).HasMaxLength(50);
+
+        builder.Property(x => x.Level).IsRequired().HasDefaultValue(0);
+
+        builder.Property(x => x.IsSystem).IsRequired().HasDefaultValue(false);
+
         // ========== Indexes ==========
         builder.HasIndex(x => x.Name).IsUnique().HasDatabaseName("IX_Roles_Name");
 
@@ -51,6 +57,8 @@ public class RoleConfigurations : IEntityTypeConfiguration<Role>
             .HasIndex(x => x.NormalizedName)
             .IsUnique()
             .HasDatabaseName("IX_Roles_NormalizedName");
+
+        builder.HasIndex(x => x.Code).HasDatabaseName("IX_Roles_Code");
 
         builder.HasIndex(x => x.IsDeleted).HasDatabaseName("IX_Roles_IsDeleted");
 

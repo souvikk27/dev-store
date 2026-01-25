@@ -1,6 +1,7 @@
 ﻿using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Database.Interceptors;
 using Intellidevstore.Libs.Identity;
+using Intellidevstore.Libs.Shared.Services;
 using Intellidevstore.Libs.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +18,11 @@ public static class DependencyInjection
         IConfiguration configuration
     )
     {
+        services.AddHttpContextAccessor();
+
+        // Register CurrentUserService
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+
         services.AddSingleton<IFileSystem>(sp =>
         {
             var rootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");

@@ -1,0 +1,68 @@
+### Register a new user
+POST https://localhost:5001/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "userName": "testuser",
+  "email": "test@example.com",
+  "password": "Test@123456",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Login with Refresh Token (JWT)
+POST https://localhost:5001/api/v1/auth/login
+Content-Type: application/json
+grant_type: refresh_token
+
+{
+  "emailOrUsername": "test@example.com",
+  "password": "Test@123456",
+  "deviceInfo": "Chrome on Windows"
+}
+
+### Login with API Key
+POST https://localhost:5001/api/v1/auth/login
+Content-Type: application/json
+grant_type: api_key
+
+{
+  "emailOrUsername": "test@example.com",
+  "password": "Test@123456",
+  "deviceInfo": "Postman API Client"
+}
+
+### Refresh Token
+POST https://localhost:5001/api/v1/auth/refresh-token
+Content-Type: application/json
+
+{
+  "accessToken": "your-access-token-here",
+  "refreshToken": "your-refresh-token-here"
+}
+
+### Test with JWT Bearer Token
+GET https://localhost:5001/api/v1/some-protected-endpoint
+Authorization: Bearer your-access-token-here
+
+### Test with API Key
+GET https://localhost:5001/api/v1/some-protected-endpoint
+X-API-KEY: dev-api-key-change-in-production
+
+### Logout (Current Device)
+POST https://localhost:5001/api/v1/auth/logout
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "refreshToken": "your-refresh-token-here"
+}
+
+### Logout (All Devices)
+POST https://localhost:5001/api/v1/auth/logout
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "logoutAllDevices": true
+}

@@ -3,6 +3,7 @@ using System;
 using Intellidevstore.Libs.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intellidevstore.Libs.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260125175428_AddRoleCodeLevelAndIsSystem")]
+    partial class AddRoleCodeLevelAndIsSystem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -837,7 +840,7 @@ namespace Intellidevstore.Libs.Migrations
                         .HasConstraintName("fk_user_roles_roles_role_id");
 
                     b.HasOne("Intellidevstore.Libs.Identity.Entities.User", "User")
-                        .WithMany("UserRoles")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
@@ -868,11 +871,6 @@ namespace Intellidevstore.Libs.Migrations
                 });
 
             modelBuilder.Entity("Intellidevstore.Libs.Identity.Entities.Role", b =>
-                {
-                    b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("Intellidevstore.Libs.Identity.Entities.User", b =>
                 {
                     b.Navigation("UserRoles");
                 });

@@ -20,6 +20,9 @@ public class User : SoftDeletableEntity
     public bool IsLockedOut { get; set; }
     public DateTime? LockoutEndAt { get; set; }
 
+    // Navigation properties
+    public virtual ICollection<UserRole>? UserRoles { get; set; }
+
     // Additional user-specific properties can be added here
 
     protected User() { }

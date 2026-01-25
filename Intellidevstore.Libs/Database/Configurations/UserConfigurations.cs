@@ -85,7 +85,7 @@ public class UserConfigurations : IEntityTypeConfiguration<User>
 
         // ========== Navigation Properties / Relationships ==========
         builder
-            .HasMany<UserRole>()
+            .HasMany(u => u.UserRoles)
             .WithOne(ur => ur.User)
             .HasForeignKey(ur => ur.UserId)
             .OnDelete(DeleteBehavior.Cascade);

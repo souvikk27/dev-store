@@ -8,5 +8,7 @@ public static class IdentityDependencyInjection
     public static void AddIdentityServices(this IServiceCollection services)
     {
         services.AddScoped<IPasswordHasherService, PasswordHasherService>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IApiKeyService, ApiKeyService>();
     }
 }
