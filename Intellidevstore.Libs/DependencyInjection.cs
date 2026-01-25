@@ -1,5 +1,6 @@
 ﻿using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Database.Interceptors;
+using Intellidevstore.Libs.Identity;
 using Intellidevstore.Libs.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -46,5 +47,6 @@ public static class DependencyInjection
                 options.AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>());
             }
         );
+        services.AddIdentityServices();
     }
 }
