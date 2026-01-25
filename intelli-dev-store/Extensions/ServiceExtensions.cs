@@ -26,9 +26,7 @@ public static class ServiceExtensions
 
         builder.Host.UseWolverine(options =>
         {
-            options.Discovery.IncludeAssembly(
-                typeof(Intellidevstore.Libs.IntelliDevStoreLibAssemblyMarker).Assembly
-            );
+            options.Discovery.IncludeAssembly(typeof(IntelliDevStoreLibAssemblyMarker).Assembly);
             options.ConfigureWolverine(connectionString);
             options.UseSystemTextJsonForSerialization(jsonOptions =>
             {

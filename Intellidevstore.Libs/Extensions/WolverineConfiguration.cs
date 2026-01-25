@@ -11,12 +11,8 @@ public static class WolverineConfiguration
         string rabbitMqConnectionString
     )
     {
-        // Configure RabbitMQ transport with connection URI
-        // Format: amqp://user:password@host:port/vhost
         var rabbitMqUri = new Uri(rabbitMqConnectionString);
-
         options.UseRabbitMq(rabbitMqUri).AutoProvision().UseConventionalRouting();
-
         // Configure message handler discovery - scan this assembly for handlers
         options.Discovery.IncludeAssembly(typeof(WolverineConfiguration).Assembly);
         // Configure policies for durability

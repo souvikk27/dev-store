@@ -8,7 +8,7 @@ namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
 public record CreateUserCommand(CreateUserRequest Request, Guid CreatedBy);
 
-public class CreateUserHandler
+public sealed class CreateUserHandler
 {
     private readonly ApplicationDbContext _context;
     private readonly IPasswordHasherService _passwordHasherService;
@@ -53,7 +53,7 @@ public class CreateUserHandler
             FirstName = command.Request.FirstName,
             LastName = command.Request.LastName,
             IsActive = true,
-            EmailConfirmed = false, // Set to true if email verification is skipped
+            EmailConfirmed = false,
             CreatedDate = DateTime.UtcNow,
             CreatedBy = command.CreatedBy,
         };
