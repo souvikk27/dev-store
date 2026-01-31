@@ -1,6 +1,6 @@
 using Carter;
 using intelli_dev_store.Extensions;
-using Intellidevstore.Libs.Database.Seeders;
+using Intellidevstore.Libs.Extensions;
 using Wolverine.Http;
 
 ServiceExtensions.ConfigureBootstrapLogger();
@@ -20,8 +20,8 @@ builder.Services.AddWolverineHttp();
 var app = builder.Build();
 app.UseSerilogRequestLoggingMiddleware();
 
-// Seed database
-await app.SeedDatabaseAsync();
+// Execute automatic migrations and seed super admin
+await app.UseAutoMigrationsAsync();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

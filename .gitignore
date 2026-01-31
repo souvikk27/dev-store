@@ -140,3 +140,9 @@ yarn-error.log
 
 # Service Fabric
 *.sfproj.user
+
+# Open Spec
+.qoder/
+.qwen/
+openspec/
+.kilocode/

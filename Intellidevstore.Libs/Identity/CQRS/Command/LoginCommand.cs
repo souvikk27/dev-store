@@ -45,7 +45,7 @@ public sealed class LoginHandler
         // Find user by email or username
         var user = await _context
             .Users.Include(u => u.UserRoles)!
-            .ThenInclude(ur => ur.Role)
+                .ThenInclude(ur => ur.Role)
             .Where(u =>
                 u.Email!.ToLower() == command.Request.EmailOrUsername.ToLower()
                 || u.UserName!.ToLower() == command.Request.EmailOrUsername.ToLower()
