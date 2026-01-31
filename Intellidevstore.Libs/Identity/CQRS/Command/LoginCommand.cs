@@ -2,10 +2,12 @@ using System.Security.Claims;
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.Entities;
+using Intellidevstore.Libs.Identity.Events;
 using Intellidevstore.Libs.Identity.Services;
 using Intellidevstore.Libs.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Wolverine;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
@@ -24,13 +26,15 @@ public sealed class LoginHandler
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IApiKeyService _apiKeyService;
     private readonly IConfiguration _configuration;
+    private readonly IMessageBus _bus;
 
     public LoginHandler(
         ApplicationDbContext context,
         IPasswordHasherService passwordHasherService,
         IJwtTokenService jwtTokenService,
         IApiKeyService apiKeyService,
-        IConfiguration configuration
+        IConfiguration configuration,
+        IMessageBus bus
     )
     {
         _context = context;
@@ -38,6 +42,7 @@ public sealed class LoginHandler
         _jwtTokenService = jwtTokenService;
         _apiKeyService = apiKeyService;
         _configuration = configuration;
+        _bus = bus;
     }
 
     public async Task<Result<object>> Handle(LoginCommand command)
@@ -201,20 +206,18 @@ public sealed class LoginHandler
 
             _context.PlatformRefreshTokens.Add(platformRefreshToken);
 
-            // Create user session
-            var sessionToken = Guid.NewGuid().ToString();
-            var userSession = new UserSession(
-                Guid.NewGuid(),
-                user.Id,
-                sessionToken,
-                command.DeviceInfo,
-                command.IpAddress,
-                command.UserAgent,
-                user.Id
-            );
-
-            _context.UserSessions.Add(userSession);
             await _context.SaveChangesAsync();
+
+            await _bus.PublishAsync(
+                new LoginEvent(
+                    user.Id,
+                    command.IpAddress,
+                    command.UserAgent,
+                    command.DeviceInfo,
+                    command.GrantType,
+                    DateTime.UtcNow
+                )
+            );
 
             var tokenResponse = new LoginResponse(
                 accessToken,

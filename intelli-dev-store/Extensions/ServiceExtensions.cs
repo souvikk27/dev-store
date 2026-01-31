@@ -4,7 +4,6 @@ using System.Text.Json.Serialization;
 using Carter;
 using intelli_dev_store.Authentication;
 using Intellidevstore.Libs;
-using Intellidevstore.Libs.Extensions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -38,6 +37,7 @@ public static class ServiceExtensions
             {
                 var rabbitMqUri = new Uri(connectionString);
                 options.UseRabbitMq(rabbitMqUri).AutoProvision().UseConventionalRouting();
+                options.Policies.UseDurableLocalQueues();
                 options.Policies.UseDurableOutboxOnAllSendingEndpoints();
                 options
                     .OnException<Exception>()
