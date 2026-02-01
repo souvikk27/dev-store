@@ -66,7 +66,7 @@ public sealed class UserEndpoints : ICarterModule
     )
     {
         var command = new CreateUserCommand(request, Guid.NewGuid());
-        var result = await dispatcher.Send<CreateUserCommand, Result<User>>(command, ct);
+        var result = await dispatcher.Send(command, ct);
         return result.IsFailure ? Results.BadRequest(result.Error) : Results.Ok(result.Value);
     }
 
@@ -89,7 +89,7 @@ public sealed class UserEndpoints : ICarterModule
         }
 
         var command = new LoginCommand(request, ipAddress, userAgent, deviceInfo, grantType);
-        var result = await dispatcher.Send<LoginCommand, Result<object>>(command, ct);
+        var result = await dispatcher.Send(command, ct);
 
         if (result.IsFailure)
         {
@@ -124,7 +124,7 @@ public sealed class UserEndpoints : ICarterModule
         }
 
         var command = new LogoutCommand(request, userId);
-        var result = await dispatcher.Send<LogoutCommand, Result>(command, ct);
+        var result = await dispatcher.Send(command, ct);
 
         if (result.IsFailure)
         {
@@ -141,10 +141,7 @@ public sealed class UserEndpoints : ICarterModule
     )
     {
         var command = new RefreshTokenCommand(request);
-        var result = await dispatcher.Send<RefreshTokenCommand, Result<RefreshTokenResponse>>(
-            command,
-            ct
-        );
+        var result = await dispatcher.Send(command, ct);
 
         if (result.IsFailure)
         {
