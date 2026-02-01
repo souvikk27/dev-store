@@ -1,13 +1,14 @@
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Shared.Common;
+using Intellidevstore.Libs.Shared.Messages;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
-public record LogoutCommand(LogoutRequest Request, Guid UserId);
+public record LogoutCommand(LogoutRequest Request, Guid UserId) : ICommand<Result>;
 
-public sealed class LogoutHandler
+public sealed class LogoutHandler : ICommandHandler<LogoutCommand, Result>
 {
     private readonly ApplicationDbContext _context;
 
@@ -16,7 +17,10 @@ public sealed class LogoutHandler
         _context = context;
     }
 
-    public async Task<Result> Handle(LogoutCommand command)
+    public async Task<Result> Handle(
+        LogoutCommand command,
+        CancellationToken cancellationToken = default
+    )
     {
         if (command.Request.LogoutAllDevices)
         {
@@ -85,7 +89,7 @@ public sealed class LogoutHandler
             }
         }
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }

@@ -1,6 +1,8 @@
 ﻿using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Database.Interceptors;
+using Intellidevstore.Libs.Extensions;
 using Intellidevstore.Libs.Identity;
+using Intellidevstore.Libs.Identity.Extensions;
 using Intellidevstore.Libs.Shared.Services;
 using Intellidevstore.Libs.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +21,7 @@ public static class DependencyInjection
     )
     {
         services.AddHttpContextAccessor();
-
+        services.AddLightweightCqrs();
         // Register CurrentUserService
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 

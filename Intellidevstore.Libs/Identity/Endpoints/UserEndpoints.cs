@@ -1,32 +1,80 @@
+using Carter;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.CQRS.Command;
 using Intellidevstore.Libs.Identity.Entities;
 using Intellidevstore.Libs.Shared.Common;
+using Intellidevstore.Libs.Shared.Messages;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Wolverine;
-using Wolverine.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 namespace Intellidevstore.Libs.Identity.Endpoints;
 
-public static class UserEndpoints
+public sealed class UserEndpoints : ICarterModule
 {
-    [WolverinePost("/api/v1/auth/register")]
-    public static async Task<IResult> RegisterUser(
-        CreateUserRequest request,
-        IMessageBus bus,
-        HttpContext httpContext
+    public void AddRoutes(IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/v1/auth").WithTags("Authentication");
+
+        // -----------------------------
+        // REGISTER
+        // -----------------------------
+        group
+            .MapPost("/register", RegisterUserAsync)
+            .Produces<User>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest);
+
+        // -----------------------------
+        // LOGIN
+        // -----------------------------
+        group
+            .MapPost("/login", LoginAsync)
+            .Produces<object>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status400BadRequest);
+
+        // -----------------------------
+        // LOGOUT
+        // -----------------------------
+        group
+            .MapPost("/logout", LogoutAsync)
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status400BadRequest)
+            .RequireAuthorization();
+
+        // -----------------------------
+        // REFRESH TOKEN
+        // -----------------------------
+        group
+            .MapPost("/refresh-token", RefreshTokenAsync)
+            .Produces<RefreshTokenResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status400BadRequest);
+    }
+
+    // =============================
+    // Handlers
+    // =============================
+
+    private static async Task<IResult> RegisterUserAsync(
+        [FromBody] CreateUserRequest request,
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken ct
     )
     {
         var command = new CreateUserCommand(request, Guid.NewGuid());
-        var result = await bus.InvokeAsync<Result<User>>(command);
+        var result = await dispatcher.Send<CreateUserCommand, Result<User>>(command, ct);
         return result.IsFailure ? Results.BadRequest(result.Error) : Results.Ok(result.Value);
     }
 
-    [WolverinePost("/api/v1/auth/login")]
-    public static async Task<IResult> Login(
-        LoginRequest request,
-        IMessageBus bus,
-        HttpContext httpContext
+    private static async Task<IResult> LoginAsync(
+        [FromBody] LoginRequest request,
+        [FromServices] IDispatcher dispatcher,
+        HttpContext httpContext,
+        CancellationToken ct
     )
     {
         var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
@@ -41,7 +89,7 @@ public static class UserEndpoints
         }
 
         var command = new LoginCommand(request, ipAddress, userAgent, deviceInfo, grantType);
-        var result = await bus.InvokeAsync<Result<object>>(command);
+        var result = await dispatcher.Send<LoginCommand, Result<object>>(command, ct);
 
         if (result.IsFailure)
         {
@@ -59,11 +107,11 @@ public static class UserEndpoints
         return Results.Ok(result.Value);
     }
 
-    [WolverinePost("/api/v1/auth/logout")]
-    public static async Task<IResult> Logout(
-        LogoutRequest request,
-        IMessageBus bus,
-        HttpContext httpContext
+    private static async Task<IResult> LogoutAsync(
+        [FromBody] LogoutRequest request,
+        [FromServices] IDispatcher dispatcher,
+        HttpContext httpContext,
+        CancellationToken ct
     )
     {
         // Get user ID from claims
@@ -76,7 +124,7 @@ public static class UserEndpoints
         }
 
         var command = new LogoutCommand(request, userId);
-        var result = await bus.InvokeAsync<Result>(command);
+        var result = await dispatcher.Send<LogoutCommand, Result>(command, ct);
 
         if (result.IsFailure)
         {
@@ -86,15 +134,17 @@ public static class UserEndpoints
         return Results.Ok(new { message = "Logged out successfully" });
     }
 
-    [WolverinePost("/api/v1/auth/refresh-token")]
-    public static async Task<IResult> RefreshToken(
-        RefreshTokenRequest request,
-        IMessageBus bus,
-        HttpContext httpContext
+    private static async Task<IResult> RefreshTokenAsync(
+        [FromBody] RefreshTokenRequest request,
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken ct
     )
     {
         var command = new RefreshTokenCommand(request);
-        var result = await bus.InvokeAsync<Result<RefreshTokenResponse>>(command);
+        var result = await dispatcher.Send<RefreshTokenCommand, Result<RefreshTokenResponse>>(
+            command,
+            ct
+        );
 
         if (result.IsFailure)
         {

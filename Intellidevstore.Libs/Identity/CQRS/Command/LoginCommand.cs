@@ -2,12 +2,11 @@ using System.Security.Claims;
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.Entities;
-using Intellidevstore.Libs.Identity.Events;
 using Intellidevstore.Libs.Identity.Services;
 using Intellidevstore.Libs.Shared.Common;
+using Intellidevstore.Libs.Shared.Messages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Wolverine;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
@@ -17,24 +16,22 @@ public record LoginCommand(
     string UserAgent,
     string DeviceInfo,
     string GrantType
-);
+) : ICommand<Result<object>>;
 
-public sealed class LoginHandler
+public sealed class LoginHandler : ICommandHandler<LoginCommand, Result<object>>
 {
     private readonly ApplicationDbContext _context;
     private readonly IPasswordHasherService _passwordHasherService;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IApiKeyService _apiKeyService;
     private readonly IConfiguration _configuration;
-    private readonly IMessageBus _bus;
 
     public LoginHandler(
         ApplicationDbContext context,
         IPasswordHasherService passwordHasherService,
         IJwtTokenService jwtTokenService,
         IApiKeyService apiKeyService,
-        IConfiguration configuration,
-        IMessageBus bus
+        IConfiguration configuration
     )
     {
         _context = context;
@@ -42,15 +39,17 @@ public sealed class LoginHandler
         _jwtTokenService = jwtTokenService;
         _apiKeyService = apiKeyService;
         _configuration = configuration;
-        _bus = bus;
     }
 
-    public async Task<Result<object>> Handle(LoginCommand command)
+    public async Task<Result<object>> Handle(
+        LoginCommand command,
+        CancellationToken cancellationToken = default
+    )
     {
         // Find user by email or username
         var user = await _context
             .Users.Include(u => u.UserRoles)!
-                .ThenInclude(ur => ur.Role)
+            .ThenInclude(ur => ur.Role)
             .Where(u =>
                 u.Email!.ToLower() == command.Request.EmailOrUsername.ToLower()
                 || u.UserName!.ToLower() == command.Request.EmailOrUsername.ToLower()
@@ -207,17 +206,6 @@ public sealed class LoginHandler
             _context.PlatformRefreshTokens.Add(platformRefreshToken);
 
             await _context.SaveChangesAsync();
-
-            await _bus.PublishAsync(
-                new LoginEvent(
-                    user.Id,
-                    command.IpAddress,
-                    command.UserAgent,
-                    command.DeviceInfo,
-                    command.GrantType,
-                    DateTime.UtcNow
-                )
-            );
 
             var tokenResponse = new LoginResponse(
                 accessToken,

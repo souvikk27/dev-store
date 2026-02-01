@@ -2,13 +2,14 @@ using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Entities;
 using Intellidevstore.Libs.Identity.Services;
 using Intellidevstore.Libs.Shared.Common;
+using Intellidevstore.Libs.Shared.Messages;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
-public record CreateUserCommand(CreateUserRequest Request, Guid CreatedBy);
+public record CreateUserCommand(CreateUserRequest Request, Guid CreatedBy) : ICommand<Result<User>>;
 
-public sealed class CreateUserHandler
+public sealed class CreateUserHandler : ICommandHandler<CreateUserCommand, Result<User>>
 {
     private readonly ApplicationDbContext _context;
     private readonly IPasswordHasherService _passwordHasherService;
@@ -22,7 +23,10 @@ public sealed class CreateUserHandler
         _passwordHasherService = passwordHasherService;
     }
 
-    public async Task<Result<User>> Handle(CreateUserCommand command)
+    public async Task<Result<User>> Handle(
+        CreateUserCommand command,
+        CancellationToken cancellationToken = default
+    )
     {
         // Check if user with same email or username already exists
         var existingUser = await _context

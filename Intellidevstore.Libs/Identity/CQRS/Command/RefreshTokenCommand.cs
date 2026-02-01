@@ -2,14 +2,17 @@ using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.Services;
 using Intellidevstore.Libs.Shared.Common;
+using Intellidevstore.Libs.Shared.Messages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
-public record RefreshTokenCommand(RefreshTokenRequest Request);
+public record RefreshTokenCommand(RefreshTokenRequest Request)
+    : ICommand<Result<RefreshTokenResponse>>;
 
 public sealed class RefreshTokenHandler
+    : ICommandHandler<RefreshTokenCommand, Result<RefreshTokenResponse>>
 {
     private readonly ApplicationDbContext _context;
     private readonly IJwtTokenService _jwtTokenService;
@@ -26,7 +29,10 @@ public sealed class RefreshTokenHandler
         _configuration = configuration;
     }
 
-    public async Task<Result<RefreshTokenResponse>> Handle(RefreshTokenCommand command)
+    public async Task<Result<RefreshTokenResponse>> Handle(
+        RefreshTokenCommand command,
+        CancellationToken cancellationToken = default
+    )
     {
         // Validate the access token and get principal
         var principal = _jwtTokenService.GetPrincipalFromExpiredToken(command.Request.AccessToken);

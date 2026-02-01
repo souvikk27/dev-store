@@ -1,7 +1,6 @@
 using Carter;
 using intelli_dev_store.Extensions;
 using Intellidevstore.Libs.Extensions;
-using Wolverine.Http;
 
 ServiceExtensions.ConfigureBootstrapLogger();
 
@@ -13,9 +12,7 @@ var configuration = builder.Configuration;
 builder.Services.AddApplicationServices(configuration);
 builder.Services.ConfigureAuthentication(configuration);
 builder.Services.AddEndpointsApiExplorer();
-builder.AddWolverineWithRabbitMq();
 builder.Services.AddSwaggerGen();
-builder.Services.AddWolverineHttp();
 
 var app = builder.Build();
 app.UseSerilogRequestLoggingMiddleware();
@@ -35,7 +32,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapCarter();
-app.MapWolverineEndpoints();
 app.UseHttpsRedirection();
 
 app.Run();
