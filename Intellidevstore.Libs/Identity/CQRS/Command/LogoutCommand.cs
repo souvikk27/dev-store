@@ -1,31 +1,26 @@
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
+using Intellidevstore.Libs.Messaging.Command;
 using Intellidevstore.Libs.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
-public record LogoutCommand(LogoutRequest Request, Guid UserId);
+public record LogoutCommand(LogoutRequest Request, Guid UserId) : ICommand<Result>;
 
-public sealed class LogoutHandler
+public sealed class LogoutHandler(ApplicationDbContext context)
+    : ICommandHandler<LogoutCommand, Result>
 {
-    private readonly ApplicationDbContext _context;
-
-    public LogoutHandler(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<Result> Handle(LogoutCommand command)
+    public async Task<Result> Handle(LogoutCommand command, CancellationToken ct = default)
     {
         if (command.Request.LogoutAllDevices)
         {
             // Revoke all refresh tokens for the user
-            var allRefreshTokens = await _context
+            var allRefreshTokens = await context
                 .PlatformRefreshTokens.Where(rt =>
                     rt.UserId == command.UserId && !rt.IsRevoked && !rt.IsUsed
                 )
-                .ToListAsync();
+                .ToListAsync(cancellationToken: ct);
 
             foreach (var token in allRefreshTokens)
             {
@@ -36,9 +31,9 @@ public sealed class LogoutHandler
             }
 
             // End all active sessions
-            var allSessions = await _context
+            var allSessions = await context
                 .UserSessions.Where(s => s.UserId == command.UserId && s.IsActive)
-                .ToListAsync();
+                .ToListAsync(cancellationToken: ct);
 
             foreach (var session in allSessions)
             {
@@ -48,8 +43,9 @@ public sealed class LogoutHandler
         else if (!string.IsNullOrEmpty(command.Request.RefreshToken))
         {
             // Revoke specific refresh token
-            var refreshToken = await _context.PlatformRefreshTokens.FirstOrDefaultAsync(rt =>
-                rt.Token == command.Request.RefreshToken && rt.UserId == command.UserId
+            var refreshToken = await context.PlatformRefreshTokens.FirstOrDefaultAsync(
+                rt => rt.Token == command.Request.RefreshToken && rt.UserId == command.UserId,
+                cancellationToken: ct
             );
 
             if (refreshToken != null)
@@ -61,31 +57,25 @@ public sealed class LogoutHandler
             }
 
             // End the associated session (find by JWT ID or most recent active session)
-            var activeSession = await _context
+            var activeSession = await context
                 .UserSessions.Where(s => s.UserId == command.UserId && s.IsActive)
                 .OrderByDescending(s => s.LastActivityAt)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(cancellationToken: ct);
 
-            if (activeSession != null)
-            {
-                activeSession.EndSession("User logged out");
-            }
+            activeSession?.EndSession("User logged out");
         }
         else
         {
             // If no refresh token provided, end the most recent active session
-            var activeSession = await _context
+            var activeSession = await context
                 .UserSessions.Where(s => s.UserId == command.UserId && s.IsActive)
                 .OrderByDescending(s => s.LastActivityAt)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(cancellationToken: ct);
 
-            if (activeSession != null)
-            {
-                activeSession.EndSession("User logged out");
-            }
+            activeSession?.EndSession("User logged out");
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync(ct);
 
         return Result.Success();
     }

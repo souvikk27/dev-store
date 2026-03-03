@@ -1,36 +1,29 @@
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Entities;
 using Intellidevstore.Libs.Identity.Services;
+using Intellidevstore.Libs.Messaging.Command;
 using Intellidevstore.Libs.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
-public record CreateUserCommand(CreateUserRequest Request, Guid CreatedBy);
+public record CreateUserCommand(CreateUserRequest Request, Guid CreatedBy) : ICommand<Result<User>>;
 
-public sealed class CreateUserHandler
+public sealed class CreateUserHandler(
+    ApplicationDbContext context,
+    IPasswordHasherService passwordHasherService)
+    : ICommandHandler<CreateUserCommand, Result<User>>
 {
-    private readonly ApplicationDbContext _context;
-    private readonly IPasswordHasherService _passwordHasherService;
-
-    public CreateUserHandler(
-        ApplicationDbContext context,
-        IPasswordHasherService passwordHasherService
-    )
-    {
-        _context = context;
-        _passwordHasherService = passwordHasherService;
-    }
-
-    public async Task<Result<User>> Handle(CreateUserCommand command)
+    public async Task<Result<User>> Handle(CreateUserCommand command, CancellationToken ct = default)
     {
         // Check if user with same email or username already exists
-        var existingUser = await _context
+        var existingUser = await context
             .Users.Where(u =>
-                u.Email!.ToLower() == command.Request.Email.ToLower()
-                || u.UserName!.ToLower() == command.Request.UserName.ToLower()
+                u.Email != null && u.UserName != null &&
+                (u.Email.ToLower() == command.Request.Email.ToLower()
+                 || u.UserName.ToLower() == command.Request.UserName.ToLower())
             )
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken: ct);
 
         if (existingUser != null)
         {
@@ -42,7 +35,7 @@ public sealed class CreateUserHandler
         }
 
         // Hash the password
-        var passwordHash = _passwordHasherService.HashPassword(command.Request.Password);
+        var passwordHash = passwordHasherService.HashPassword(command.Request.Password);
 
         // Create new user
         var user = new User(Guid.NewGuid(), command.CreatedBy)
@@ -59,10 +52,10 @@ public sealed class CreateUserHandler
         };
 
         // Add user to context
-        _context.Users.Add(user);
+        context.Users.Add(user);
 
         // Save changes
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync(ct);
 
         return Result.Success(user);
     }

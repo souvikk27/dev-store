@@ -1,6 +1,11 @@
 ﻿using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Database.Interceptors;
 using Intellidevstore.Libs.Identity;
+using Intellidevstore.Libs.Identity.Contracts;
+using Intellidevstore.Libs.Identity.CQRS.Command;
+using Intellidevstore.Libs.Identity.Entities;
+using Intellidevstore.Libs.Messaging;
+using Intellidevstore.Libs.Shared.Common;
 using Intellidevstore.Libs.Shared.Services;
 using Intellidevstore.Libs.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +28,7 @@ public static class DependencyInjection
         // Register CurrentUserService
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        services.AddSingleton<IFileSystem>(sp =>
+        services.AddSingleton<IFileSystem>(_ =>
         {
             var rootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
 
@@ -54,5 +59,14 @@ public static class DependencyInjection
             }
         );
         services.AddIdentityServices();
+        services.AddLightweightCqrs();
+        services.AddCommandHandler<CreateUserCommand, Result<User>, CreateUserHandler>();
+        services.AddCommandHandler<LoginCommand, Result<object>, LoginHandler>();
+        services.AddCommandHandler<LogoutCommand, Result, LogoutHandler>();
+        services.AddCommandHandler<
+            RefreshTokenCommand,
+            Result<RefreshTokenResponse>,
+            RefreshTokenHandler
+        >();
     }
 }

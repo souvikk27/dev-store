@@ -1,35 +1,29 @@
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.Services;
+using Intellidevstore.Libs.Messaging.Command;
 using Intellidevstore.Libs.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
-public record RefreshTokenCommand(RefreshTokenRequest Request);
+public record RefreshTokenCommand(RefreshTokenRequest Request)
+    : ICommand<Result<RefreshTokenResponse>>;
 
-public sealed class RefreshTokenHandler
+public sealed class RefreshTokenHandler(
+    ApplicationDbContext context,
+    IJwtTokenService jwtTokenService,
+    IConfiguration configuration
+) : ICommandHandler<RefreshTokenCommand, Result<RefreshTokenResponse>>
 {
-    private readonly ApplicationDbContext _context;
-    private readonly IJwtTokenService _jwtTokenService;
-    private readonly IConfiguration _configuration;
-
-    public RefreshTokenHandler(
-        ApplicationDbContext context,
-        IJwtTokenService jwtTokenService,
-        IConfiguration configuration
+    public async Task<Result<RefreshTokenResponse>> Handle(
+        RefreshTokenCommand command,
+        CancellationToken ct = default
     )
     {
-        _context = context;
-        _jwtTokenService = jwtTokenService;
-        _configuration = configuration;
-    }
-
-    public async Task<Result<RefreshTokenResponse>> Handle(RefreshTokenCommand command)
-    {
         // Validate the access token and get principal
-        var principal = _jwtTokenService.GetPrincipalFromExpiredToken(command.Request.AccessToken);
+        var principal = jwtTokenService.GetPrincipalFromExpiredToken(command.Request.AccessToken);
 
         if (principal == null)
         {
@@ -47,13 +41,14 @@ public sealed class RefreshTokenHandler
         }
 
         // Get JWT ID from the access token
-        var jwtId = _jwtTokenService.GetJwtIdFromToken(command.Request.AccessToken);
+        var jwtId = jwtTokenService.GetJwtIdFromToken(command.Request.AccessToken);
 
         // Find the refresh token in database
-        var storedRefreshToken = await _context
+        var storedRefreshToken = await context
             .PlatformRefreshTokens.Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt =>
-                rt.Token == command.Request.RefreshToken && rt.UserId == userId
+            .FirstOrDefaultAsync(
+                rt => rt.Token == command.Request.RefreshToken && rt.UserId == userId,
+                cancellationToken: ct
             );
 
         if (storedRefreshToken == null)
@@ -99,15 +94,15 @@ public sealed class RefreshTokenHandler
 
         // Generate new tokens
         var user = storedRefreshToken.User!;
-        var newAccessToken = _jwtTokenService.GenerateAccessToken(user);
-        var newRefreshToken = _jwtTokenService.GenerateRefreshToken();
-        var newJwtId = _jwtTokenService.GetJwtIdFromToken(newAccessToken);
+        var newAccessToken = jwtTokenService.GenerateAccessToken(user);
+        var newRefreshToken = jwtTokenService.GenerateRefreshToken();
+        var newJwtId = jwtTokenService.GetJwtIdFromToken(newAccessToken);
 
         var refreshTokenExpirationDays = int.Parse(
-            _configuration["JwtSettings:RefreshTokenExpirationDays"] ?? "7"
+            configuration["JwtSettings:RefreshTokenExpirationDays"] ?? "7"
         );
         var accessTokenExpirationMinutes = int.Parse(
-            _configuration["JwtSettings:ExpirationMinutes"] ?? "60"
+            configuration["JwtSettings:ExpirationMinutes"] ?? "60"
         );
 
         var newRefreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
@@ -127,8 +122,8 @@ public sealed class RefreshTokenHandler
             IpAddress = storedRefreshToken.IpAddress,
         };
 
-        _context.PlatformRefreshTokens.Add(newPlatformRefreshToken);
-        await _context.SaveChangesAsync();
+        context.PlatformRefreshTokens.Add(newPlatformRefreshToken);
+        await context.SaveChangesAsync(ct);
 
         var response = new RefreshTokenResponse(
             newAccessToken,

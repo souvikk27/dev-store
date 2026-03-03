@@ -2,12 +2,11 @@ using System.Security.Claims;
 using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.Entities;
-using Intellidevstore.Libs.Identity.Events;
 using Intellidevstore.Libs.Identity.Services;
+using Intellidevstore.Libs.Messaging.Command;
 using Intellidevstore.Libs.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Wolverine;
 
 namespace Intellidevstore.Libs.Identity.CQRS.Command;
 
@@ -17,45 +16,31 @@ public record LoginCommand(
     string UserAgent,
     string DeviceInfo,
     string GrantType
-);
+) : ICommand<Result<object>>;
 
-public sealed class LoginHandler
+public sealed class LoginHandler(
+    ApplicationDbContext context,
+    IPasswordHasherService passwordHasherService,
+    IJwtTokenService jwtTokenService,
+    IApiKeyService apiKeyService,
+    IConfiguration configuration
+) : ICommandHandler<LoginCommand, Result<object>>
 {
-    private readonly ApplicationDbContext _context;
-    private readonly IPasswordHasherService _passwordHasherService;
-    private readonly IJwtTokenService _jwtTokenService;
-    private readonly IApiKeyService _apiKeyService;
-    private readonly IConfiguration _configuration;
-    private readonly IMessageBus _bus;
-
-    public LoginHandler(
-        ApplicationDbContext context,
-        IPasswordHasherService passwordHasherService,
-        IJwtTokenService jwtTokenService,
-        IApiKeyService apiKeyService,
-        IConfiguration configuration,
-        IMessageBus bus
-    )
-    {
-        _context = context;
-        _passwordHasherService = passwordHasherService;
-        _jwtTokenService = jwtTokenService;
-        _apiKeyService = apiKeyService;
-        _configuration = configuration;
-        _bus = bus;
-    }
-
-    public async Task<Result<object>> Handle(LoginCommand command)
+    public async Task<Result<object>> Handle(LoginCommand command, CancellationToken ct = default)
     {
         // Find user by email or username
-        var user = await _context
+        var user = await context
             .Users.Include(u => u.UserRoles)!
                 .ThenInclude(ur => ur.Role)
             .Where(u =>
-                u.Email!.ToLower() == command.Request.EmailOrUsername.ToLower()
-                || u.UserName!.ToLower() == command.Request.EmailOrUsername.ToLower()
+                u.Email != null
+                && u.UserName != null
+                && (
+                    u.Email.ToLower() == command.Request.EmailOrUsername.ToLower()
+                    || u.UserName.ToLower() == command.Request.EmailOrUsername.ToLower()
+                )
             )
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken: ct);
 
         if (user == null)
         {
@@ -65,7 +50,10 @@ public sealed class LoginHandler
         }
 
         // Check if user is locked out
-        if (user.IsLockedOut && user.LockoutEndAt.HasValue && user.LockoutEndAt > DateTime.UtcNow)
+        if (
+            user is { IsLockedOut: true, LockoutEndAt: not null }
+            && user.LockoutEndAt > DateTime.UtcNow
+        )
         {
             return Result.Failure<object>(
                 Error.Forbidden(
@@ -84,7 +72,7 @@ public sealed class LoginHandler
         }
 
         // Verify password
-        var isPasswordValid = _passwordHasherService.VerifyPassword(
+        var isPasswordValid = passwordHasherService.VerifyPassword(
             command.Request.Password,
             user.PasswordHash ?? string.Empty
         );
@@ -102,7 +90,7 @@ public sealed class LoginHandler
             }
 
             user.SetModified(user.Id);
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync(ct);
 
             return Result.Failure<object>(
                 Error.Unauthorized("Auth.InvalidCredentials", "Invalid email/username or password")
@@ -130,11 +118,11 @@ public sealed class LoginHandler
         {
             // Generate API Key
             var apiKeyExpirationDays = int.Parse(
-                _configuration["JwtSettings:ApiKeyExpirationDays"] ?? "365"
+                configuration["JwtSettings:ApiKeyExpirationDays"] ?? "365"
             );
             var apiKeyExpiry = DateTime.UtcNow.AddDays(apiKeyExpirationDays);
 
-            var apiKey = await _apiKeyService.StoreApiKeyAsync(user.Id, apiKeyExpiry);
+            var apiKey = await apiKeyService.StoreApiKeyAsync(user.Id, apiKeyExpiry);
 
             // Create user session for API key
             var apiKeySession = new UserSession(
@@ -147,8 +135,8 @@ public sealed class LoginHandler
                 user.Id
             );
 
-            _context.UserSessions.Add(apiKeySession);
-            await _context.SaveChangesAsync();
+            context.UserSessions.Add(apiKeySession);
+            await context.SaveChangesAsync(ct);
 
             var apiKeyResponse = new ApiKeyLoginResponse(apiKey, apiKeyExpiry, userInfo);
 
@@ -176,15 +164,15 @@ public sealed class LoginHandler
             }
 
             // Generate JWT tokens with role claims
-            var accessToken = _jwtTokenService.GenerateAccessToken(user, additionalClaims);
-            var refreshToken = _jwtTokenService.GenerateRefreshToken();
-            var jwtId = _jwtTokenService.GetJwtIdFromToken(accessToken);
+            var accessToken = jwtTokenService.GenerateAccessToken(user, additionalClaims);
+            var refreshToken = jwtTokenService.GenerateRefreshToken();
+            var jwtId = jwtTokenService.GetJwtIdFromToken(accessToken);
 
             var refreshTokenExpirationDays = int.Parse(
-                _configuration["JwtSettings:RefreshTokenExpirationDays"] ?? "7"
+                configuration["JwtSettings:RefreshTokenExpirationDays"] ?? "7"
             );
             var accessTokenExpirationMinutes = int.Parse(
-                _configuration["JwtSettings:ExpirationMinutes"] ?? "60"
+                configuration["JwtSettings:ExpirationMinutes"] ?? "60"
             );
 
             var refreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
@@ -204,20 +192,9 @@ public sealed class LoginHandler
                 IpAddress = command.IpAddress,
             };
 
-            _context.PlatformRefreshTokens.Add(platformRefreshToken);
+            context.PlatformRefreshTokens.Add(platformRefreshToken);
 
-            await _context.SaveChangesAsync();
-
-            await _bus.PublishAsync(
-                new LoginEvent(
-                    user.Id,
-                    command.IpAddress,
-                    command.UserAgent,
-                    command.DeviceInfo,
-                    command.GrantType,
-                    DateTime.UtcNow
-                )
-            );
+            await context.SaveChangesAsync(ct);
 
             var tokenResponse = new LoginResponse(
                 accessToken,

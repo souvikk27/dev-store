@@ -1,6 +1,4 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Carter;
 using intelli_dev_store.Authentication;
 using Intellidevstore.Libs;
@@ -8,9 +6,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using Wolverine;
-using Wolverine.ErrorHandling;
-using Wolverine.RabbitMQ;
 
 namespace intelli_dev_store.Extensions;
 
@@ -24,44 +19,6 @@ public static class ServiceExtensions
         // Add application services here
         services.ConfigureClassLibrary(configuration);
         services.AddCarter();
-    }
-
-    public static WebApplicationBuilder AddWolverineWithRabbitMq(this WebApplicationBuilder builder)
-    {
-        var connectionString =
-            builder.Configuration.GetConnectionString("RabbitMQ")
-            ?? throw new InvalidOperationException("RabbitMQ connection string missing");
-
-        builder.Host.UseWolverine(
-            options =>
-            {
-                var rabbitMqUri = new Uri(connectionString);
-                options.UseRabbitMq(rabbitMqUri).AutoProvision().UseConventionalRouting();
-                options.Policies.UseDurableLocalQueues();
-                options.Policies.UseDurableOutboxOnAllSendingEndpoints();
-                options
-                    .OnException<Exception>()
-                    .RetryWithCooldown(
-                        TimeSpan.FromSeconds(1),
-                        TimeSpan.FromSeconds(5),
-                        TimeSpan.FromSeconds(30)
-                    )
-                    .Then.MoveToErrorQueue();
-                options.Discovery.IncludeAssembly(
-                    typeof(IntelliDevStoreLibAssemblyMarker).Assembly
-                );
-                options.UseSystemTextJsonForSerialization(jsonOptions =>
-                {
-                    jsonOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-                    jsonOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-                    jsonOptions.Converters.Add(new JsonStringEnumConverter());
-                });
-                options.Policies.DisableConventionalLocalRouting();
-            },
-            ExtensionDiscovery.ManualOnly
-        );
-
-        return builder;
     }
 
     public static void ConfigureBootstrapLogger()
