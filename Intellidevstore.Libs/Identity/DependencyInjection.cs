@@ -1,3 +1,4 @@
+using Intellidevstore.Libs.Identity.Extensions;
 using Intellidevstore.Libs.Identity.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,5 +11,6 @@ public static class IdentityDependencyInjection
         services.AddScoped<IPasswordHasherService, PasswordHasherService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IApiKeyService, ApiKeyService>();
+        services.AddIdentityLibs();
     }
 }
