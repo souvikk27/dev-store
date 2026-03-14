@@ -1,10 +1,9 @@
-using Intellidevstore.Libs.Extensions;
 using Intellidevstore.Libs.Identity.Contracts;
 using Intellidevstore.Libs.Identity.CQRS.Command;
 using Intellidevstore.Libs.Identity.Entities;
+using Intellidevstore.Libs.Messaging;
 using Intellidevstore.Libs.Shared.Common;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog;
 
 namespace Intellidevstore.Libs.Identity.Extensions;
 

@@ -1,4 +1,4 @@
-﻿using Intellidevstore.Libs.Database;
+using Intellidevstore.Libs.Database;
 using Intellidevstore.Libs.Database.Interceptors;
 using Intellidevstore.Libs.Identity;
 using Intellidevstore.Libs.Identity.Contracts;
@@ -11,6 +11,7 @@ using Intellidevstore.Libs.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using SharpGrip.FileSystem;
 using SharpGrip.FileSystem.Adapters;
 
@@ -28,17 +29,30 @@ public static class DependencyInjection
         // Register CurrentUserService
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        services.AddSingleton<IFileSystem>(_ =>
+        services.AddSingleton<IFileSystem>(sp =>
         {
-            var rootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+            // Try to get the content root path from IHostEnvironment
+            var hostEnvironment = sp.GetRequiredService<IHostEnvironment>();
+            var rootPath = hostEnvironment.ContentRootPath;
+            
+            // Fallback: if we can't get it from host environment, calculate it
+            if (string.IsNullOrEmpty(rootPath))
+            {
+                var basePath = AppContext.BaseDirectory;
+                // Navigate from bin/Debug/net10.0 back to project root
+                rootPath = Directory.GetParent(basePath)?.Parent?.Parent?.FullName 
+                    ?? Directory.GetCurrentDirectory();
+            }
+            
+            var wwwrootPath = Path.Combine(rootPath, "wwwroot");
 
             // Ensure the root directory exists for the LocalAdapter
-            if (!Directory.Exists(rootPath))
+            if (!Directory.Exists(wwwrootPath))
             {
-                Directory.CreateDirectory(rootPath);
+                Directory.CreateDirectory(wwwrootPath);
             }
 
-            var adapters = new List<IAdapter> { new LocalAdapter("app", rootPath) };
+            var adapters = new List<IAdapter> { new LocalAdapter("app", wwwrootPath) };
 
             return new FileSystem(adapters);
         });
@@ -58,6 +72,7 @@ public static class DependencyInjection
                 options.AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>());
             }
         );
+
         services.AddIdentityServices();
         services.AddLightweightCqrs();
         services.AddCommandHandler<CreateUserCommand, Result<User>, CreateUserHandler>();

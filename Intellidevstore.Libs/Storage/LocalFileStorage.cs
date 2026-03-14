@@ -1,4 +1,4 @@
-﻿using Intellidevstore.Libs.Types;
+using Intellidevstore.Libs.Types;
 using SharpGrip.FileSystem;
 
 namespace Intellidevstore.Libs.Storage;
@@ -20,6 +20,15 @@ public sealed class LocalFileStorage : IFileStorage
         return $"{_adapterPrefix}://{sanitized}";
     }
 
+    private string GetParentDirectory(string virtualPath)
+    {
+        var parts = virtualPath.Split('/');
+        if (parts.Length <= 1)
+            return virtualPath;
+
+        return string.Join("/", parts.Take(parts.Length - 1));
+    }
+
     public async Task<Result<Unit, string>> SaveAsync(
         string relativePath,
         Stream content,
@@ -32,7 +41,10 @@ public sealed class LocalFileStorage : IFileStorage
                 return new Err<Unit, string>("Invalid input");
 
             var virtualPath = GetVirtualPath(relativePath);
-            // var directoryPath = Path.GetDirectoryName(virtualPath)?.Replace('\\', '/');
+
+            // Ensure the parent directory exists
+            var parentDirectory = GetParentDirectory(virtualPath);
+            await _fileSystem.CreateDirectoryAsync(parentDirectory, cancellationToken);
 
             await _fileSystem.WriteFileAsync(
                 virtualPath,
